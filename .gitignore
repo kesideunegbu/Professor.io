@@ -3,3 +3,9 @@ node_modules/
 .env.*
 .DS_Store
 *.log
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+*.db
