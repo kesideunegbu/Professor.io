@@ -4,3 +4,16 @@ __pycache__/
 .pytest_cache/
 .env
 *.db
+
+# React/Node.js
+node_modules/
+dist/
+.vite/
+*.local
+
+# Environment files
+.env.*
+!.env.example
+
+# VS Code
+.vscode/
