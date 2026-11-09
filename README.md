@@ -53,6 +53,19 @@ uvicorn app.main:app --reload
 
 Then open **http://localhost:8000**. It takes you to an interactive page where you can try every feature in the browser.
 
+### Or: run everything with Docker
+
+If you have [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed, you can skip the steps above and start the backend **and** the frontend with one command (create `.env` first, as in step 2, if you want to set `JWT_SECRET` or `GEMINI_API_KEY`):
+
+```bash
+docker compose up --build
+docker compose exec backend python -m scripts.seed   # optional sample data, in a second terminal
+```
+
+- Website: **http://localhost:5173**
+- API docs: **http://localhost:8000/docs**
+- Stop with `Ctrl+C`. The database is kept in a Docker volume; `docker compose down -v` deletes it.
+
 ---
 
 ## Trying it out in the browser
