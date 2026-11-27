@@ -15,7 +15,7 @@ from app.schemas import (
     SummaryOut,
     normalize_course_code,
 )
-from app.security import get_current_user, get_optional_user
+from app.security import get_current_user, get_optional_user, get_verified_user
 from app.services.ai import AIService, AIUnavailable, get_ai
 from app.services.matching import compatibility, user_preferences
 from app.services.professors import (
@@ -62,7 +62,7 @@ def search_professors(
 
 @router.post("", response_model=ProfessorOut, status_code=status.HTTP_201_CREATED)
 def create_professor(
-    body: ProfessorCreate, db: Session = Depends(get_db), _: User = Depends(get_current_user)
+    body: ProfessorCreate, db: Session = Depends(get_db), _: User = Depends(get_verified_user)
 ):
     data = {k: v.strip() for k, v in body.model_dump().items()}
     exists = db.scalar(select(Professor).filter_by(**data))
@@ -108,7 +108,7 @@ def create_review(
     body: ReviewCreate,
     background: BackgroundTasks,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_verified_user),
     ai: AIService = Depends(get_ai),
 ):
     get_professor_or_404(db, professor_id)

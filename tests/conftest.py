@@ -15,6 +15,7 @@ from app.database import Base, engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.schemas import ComparisonNarrative, ReviewSummary  # noqa: E402
 from app.services.ai import get_ai  # noqa: E402
+from app.services.email import get_email_sender  # noqa: E402
 
 
 class FakeAI:
@@ -54,27 +55,52 @@ class FakeAI:
         )
 
 
+class FakeOutbox:
+    """Captures verification emails instead of sending them."""
+
+    def __init__(self):
+        self.sent: list[tuple[str, str, str]] = []
+
+    def send(self, to, subject, body):
+        self.sent.append((to, subject, body))
+
+    def code_for(self, email: str) -> str:
+        subject = next(subj for to, subj, _ in reversed(self.sent) if to == email.lower())
+        return subject.rsplit(" ", 1)[-1]
+
+
 @pytest.fixture
 def fake_ai():
     return FakeAI()
 
 
 @pytest.fixture
-def client(fake_ai):
+def outbox():
+    return FakeOutbox()
+
+
+@pytest.fixture
+def client(fake_ai, outbox):
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     app.dependency_overrides[get_ai] = lambda: fake_ai
+    app.dependency_overrides[get_email_sender] = lambda: outbox
     with TestClient(app) as c:
+        c.outbox = outbox
         yield c
     app.dependency_overrides.clear()
 
 
-def register(client, email="student@example.edu", password="password123") -> dict:
+def register(client, email="student@example.edu", password="password123", verify=True) -> dict:
     client.post(
         "/auth/register", json={"email": email, "password": password, "display_name": "Student"}
     )
     token = client.post("/auth/login", data={"username": email, "password": password}).json()
-    return {"Authorization": f"Bearer {token['access_token']}"}
+    headers = {"Authorization": f"Bearer {token['access_token']}"}
+    if verify:
+        code = client.outbox.code_for(email)
+        assert client.post("/auth/verify-email", json={"code": code}, headers=headers).status_code == 200
+    return headers
 
 
 def make_professor(client, headers, first="Ada", last="Lovelace", dept="CS") -> int:

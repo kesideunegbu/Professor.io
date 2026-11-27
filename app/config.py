@@ -15,6 +15,17 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-3.5-flash"
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 
+    # Only allow sign-ups from these email domains, e.g. ["edu"] or ["myschool.edu"].
+    # Empty means any domain is allowed.
+    allowed_email_domains: list[str] = []
+    # Outgoing email for verification codes. Without SMTP_HOST, emails are written
+    # to the server log instead of being sent.
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_from: str = "Professor.io <no-reply@professor.io>"
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -22,6 +22,31 @@ class User(Base):
     preferences: Mapped[list["UserPreference"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    verification: Mapped["EmailVerification | None"] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+    @property
+    def is_verified(self) -> bool:
+        return self.verification is not None and self.verification.verified_at is not None
+
+
+class EmailVerification(Base):
+    """Email verification state, kept in its own table so existing databases pick it up
+    without a migration."""
+
+    __tablename__ = "email_verifications"
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    code_hash: Mapped[str | None] = mapped_column(String(64))
+    expires_at: Mapped[datetime | None]
+    sent_at: Mapped[datetime | None]
+    attempts: Mapped[int] = mapped_column(default=0)
+    verified_at: Mapped[datetime | None]
+
+    user: Mapped[User] = relationship(back_populates="verification")
 
 
 class UserPreference(Base):

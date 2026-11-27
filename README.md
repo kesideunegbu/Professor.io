@@ -37,6 +37,13 @@ Then open `.env` and fill in these two values:
 | `GEMINI_API_KEY` | Your key from [Google AI Studio](https://aistudio.google.com/apikey). |
 | `JWT_SECRET` | Any long random text. To generate one, run `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
 
+Optional email settings, for sending verification codes (see [Email verification](#email-verification)):
+
+| Setting | What to put |
+|---|---|
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` | Your email account's sending details. Leave `SMTP_HOST` empty while testing, and codes are printed in the server terminal instead. |
+| `ALLOWED_EMAIL_DOMAINS` | Set to `["edu"]` to only allow school emails. Leave as `[]` to allow any email. |
+
 ⚠️ **Never commit `.env`.** It holds your private keys. Git already ignores it.
 
 **3. Load sample data (optional).** This adds 3 professors and 11 reviews:
@@ -61,8 +68,9 @@ On the http://localhost:8000 page:
 
 1. **Create an account** with `POST /auth/register`.
 2. **Log in:** click **Authorize** (top right) and enter your email as the username, plus your password.
-3. **Set your preferences** with `PUT /me/preferences`. To see every option, run `GET /preferences/options` first.
-4. **Try the features:**
+3. **Verify your email** with `POST /auth/verify-email`, using the 6-digit code from your email (or from the server terminal if email isn't set up). You need this before writing reviews.
+4. **Set your preferences** with `PUT /me/preferences`. To see every option, run `GET /preferences/options` first.
+5. **Try the features:**
    - `GET /me/recommendations` shows professors ranked for you.
    - `GET /professors/2/summary` shows an AI summary.
    - `GET /compare` with `a=1` and `b=2` compares two professors.
@@ -84,6 +92,8 @@ On the http://localhost:8000 page:
 |---|---|
 | Create an account | `POST /auth/register` |
 | Log in (get a token) | `POST /auth/login` |
+| Verify your email with the 6-digit code 🔒 | `POST /auth/verify-email` |
+| Send a new code (once per minute) 🔒 | `POST /auth/resend-verification` |
 | Get the current user 🔒 | `GET /me` |
 | List preference options (for onboarding) | `GET /preferences/options` |
 | View / save preferences 🔒 | `GET` / `PUT /me/preferences` |
@@ -138,6 +148,17 @@ Gemini never makes up the score or the reasons. It only reads reviews. The score
 
 ---
 
+## Email verification
+
+- **How it works:** signing up emails a 6-digit code. The student enters it in the sign-up window to verify their account.
+- **What it unlocks:** unverified students can log in, browse, and get recommendations. Writing or editing reviews and adding professors require a verified email.
+- **Limits:** codes expire after 15 minutes and allow 5 wrong guesses. A new code can be requested once per minute.
+- **School emails only:** set `ALLOWED_EMAIL_DOMAINS=["edu"]` in `.env`.
+- **Sending email with Gmail:** set `SMTP_HOST=smtp.gmail.com`, use your address as `SMTP_USERNAME`, and create an [App Password](https://myaccount.google.com/apppasswords) for `SMTP_PASSWORD`. Gmail limits how many emails you can send per day, so use a dedicated email service for a real launch.
+- **Accounts made before this feature** start unverified. They can request a code from the banner at the top of the site.
+
+---
+
 ## Gemini notes
 
 - **Free-tier limit.** A free key allows about **5 requests per minute.** Each new review, first-time summary, and first-time comparison uses one request. When the limit is hit, users see "The AI service is busy," and everything else keeps working.
@@ -172,6 +193,8 @@ app/
     ai.py          everything that talks to Gemini
     matching.py    the compatibility score
     professors.py  stats, caching, review analysis
+    verification.py  email verification codes
+    email.py       sending email
 scripts/seed.py    loads sample data
 tests/             automated tests
 ```
@@ -183,4 +206,3 @@ tests/             automated tests
 - **Database migrations,** so table changes don't require recreating the database.
 - **Rate limiting,** especially on features that call Gemini.
 - **Moderation:** let students report inappropriate reviews.
-- **Email verification,** e.g. only allowing `.edu` addresses.
