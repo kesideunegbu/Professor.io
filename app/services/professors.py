@@ -12,6 +12,7 @@ from app import database
 from app.models import AICache, Professor, Review
 from app.schemas import ProfessorStats, TraitOut
 from app.services.ai import PROMPT_VERSION, SIGNAL_BATCH_SIZE, AIService, AIUnavailable
+from app.services.limits import ai_limits
 from app.traits import DIMENSIONS, estimate_traits
 
 log = logging.getLogger(__name__)
@@ -73,12 +74,19 @@ def cached_ai_call[T: BaseModel](
     fp: str,
     schema: type[T],
     produce: Callable[[], T],
+    usage_key: str | None,
     refresh: bool = False,
 ) -> tuple[T, datetime]:
-    """Return a cached AI result for `key` if its fingerprint still matches, else regenerate."""
+    """Return a cached AI result for `key` if its fingerprint still matches, else regenerate.
+
+    Only regenerating counts toward the usage limits, under `usage_key` (see
+    app.services.limits.client_key). Pass None when AI is disabled, so nothing counts.
+    """
     entry = db.get(AICache, key)
     if entry and entry.fingerprint == fp and not refresh:
         return schema.model_validate(entry.payload), entry.created_at
+    if usage_key is not None:
+        ai_limits.reserve(usage_key)
     result = produce()
     if entry is None:
         entry = AICache(key=key)
@@ -97,6 +105,7 @@ def analyze_review(review_id: int, ai: AIService) -> None:
         if review is None:
             return
         try:
+            ai_limits.reserve(None)
             review.ai_signals = ai.extract_signals(review.text)
         except AIUnavailable as exc:
             log.warning("Could not analyze review %s: %s", review_id, exc)
@@ -121,6 +130,7 @@ def analyze_pending_reviews(ai: AIService, batch_size: int = SIGNAL_BATCH_SIZE) 
             if not pending:
                 return analyzed
             try:
+                ai_limits.reserve(None)
                 signals = ai.extract_signals_batch([r.text for r in pending])
             except AIUnavailable as exc:
                 log.warning("Stopped analyzing reviews after %s: %s", analyzed, exc)

@@ -174,7 +174,14 @@ Gemini never makes up the score or the reasons. It only reads reviews. The score
 
 ## Gemini notes
 
-- **Free-tier limit.** A free key allows about **5 requests per minute.** Each new review, first-time summary, and first-time comparison uses one request. When the limit is hit, users see "The AI service is busy," and everything else keeps working.
+- **Free-tier limit.** A free key allows about **5 requests per minute.** Each new review, first-time summary, and first-time comparison uses one request.
+- **Usage limits.** The app caps Gemini calls so the quota isn't used up:
+  - **App-wide:** 5 calls per minute (`GEMINI_REQUESTS_PER_MINUTE`). When it's reached, users see "The AI service is busy." Raise it once billing is on.
+  - **Per person:** 20 new AI results per hour (`AI_REQUESTS_PER_USER_PER_HOUR`), counted by account if logged in, otherwise by internet address.
+  - Viewing saved results never counts. When a limit is hit, everything else keeps working.
+  - Reviews that couldn't be analyzed because the app was busy can be caught up later with `analyze_pending_reviews` in `app/services/professors.py`.
+  - The counts live in the server's memory, so they reset on restart. If the app ever runs on several servers, they'd need a shared store like Redis.
+  - When deployed behind a proxy (e.g. Vercel in front of the backend), start uvicorn with `--proxy-headers` so visitors' real addresses are used.
 - **Saved results.** Summaries and comparisons are saved and only regenerated when reviews change, so viewing them again is free and instant.
 - **Changing the model.** Set `GEMINI_MODEL` in `.env`. The default is `gemini-3.5-flash`.
 - **Without a key** the app still runs. Summaries and comparison write-ups are turned off, and recommendations use tags and ratings only.
@@ -204,6 +211,7 @@ app/
   routers/         the API endpoints, grouped by feature
   services/
     ai.py          everything that talks to Gemini
+    limits.py      usage limits for Gemini calls
     matching.py    the compatibility score
     professors.py  stats, caching, review analysis
     verification.py  email verification codes
