@@ -1,0 +1,57 @@
+# Continuous integration: runs on every pull request and every push to main.
+# A red X on a PR means the backend tests or the frontend build failed.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancel an older run for the same branch when new commits are pushed.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend tests (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12" # minimum version from README.md
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Tests use a temporary SQLite database and a fake Gemini (tests/conftest.py),
+      # so no secrets or API keys are needed here.
+      - name: Run tests
+        run: pytest -v
+
+  frontend:
+    name: Frontend build (React/Vite)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # `npm ci` installs exactly what package-lock.json says and fails if it is
+      # out of sync with package.json.
+      - name: Install dependencies
+        run: npm ci
+
+      # Same build Vercel runs; catches syntax and import errors before merging.
+      - name: Build
+        run: npm run build
