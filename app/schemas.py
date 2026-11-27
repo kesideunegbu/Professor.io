@@ -26,7 +26,12 @@ class UserOut(BaseModel):
     id: int
     email: EmailStr
     display_name: str
+    is_verified: bool
     created_at: datetime
+
+
+class VerifyEmailIn(BaseModel):
+    code: str = Field(pattern=r"^\d{6}$", description="The 6-digit code from the email")
 
 
 class Token(BaseModel):

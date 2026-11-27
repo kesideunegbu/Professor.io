@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Review, User
 from app.schemas import ReviewOut, ReviewUpdate
-from app.security import get_current_user
+from app.security import get_current_user, get_verified_user
 from app.services.ai import AIService, get_ai
 from app.services.professors import analyze_review
 
@@ -26,7 +26,7 @@ def update_review(
     body: ReviewUpdate,
     background: BackgroundTasks,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_verified_user),
     ai: AIService = Depends(get_ai),
 ):
     review = _own_review(db, review_id, user)

@@ -84,6 +84,8 @@ label input,label select,label textarea,.modal input{display:block;width:100%;ma
 .response{white-space:pre-wrap;word-break:break-word;background:#f5f7fc;border-radius:9px;padding:18px;max-height:400px;overflow:auto;font-size:12px}
 .comparison-picks{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:25px 0}
 .pick{padding:38px;background:white;border:2px dashed #d6e1f1;text-align:center;border-radius:12px;font-weight:800}
+.verify-banner{background:#fff7e0;border-bottom:1px solid #f3dfa6;color:#6b4e00;font-size:14px;padding:11px 0}
+.verify-banner .shell{display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap}
 .toast{position:fixed;right:25px;bottom:25px;z-index:20;background:#1e335a;color:white;padding:15px 19px;border-radius:12px;max-width:450px;box-shadow:0 15px 30px #0003;display:flex;gap:15px}
 .toast button,.close{border:0;background:none;color:inherit}
 .modal-backdrop{position:fixed;inset:0;background:#081b3c99;z-index:30;display:flex;justify-content:center;align-items:center;padding:20px}

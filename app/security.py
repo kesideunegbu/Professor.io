@@ -65,6 +65,15 @@ def get_current_user(
     return user
 
 
+def get_verified_user(user: User = Depends(get_current_user)) -> User:
+    """For actions that should only come from real students, like writing reviews."""
+    if not user.is_verified:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "Please verify your email address before doing this"
+        )
+    return user
+
+
 def get_optional_user(
     token: str | None = Depends(oauth2_scheme_optional), db: Session = Depends(get_db)
 ) -> User | None:

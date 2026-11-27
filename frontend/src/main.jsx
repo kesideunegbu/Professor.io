@@ -28,7 +28,8 @@ function App(){
     [authMode,setAuthMode]=useState('login'),
     [email,setEmail]=useState(''),
     [password,setPassword]=useState(''),
-    [name,setName]=useState('');
+    [name,setName]=useState(''),
+    [code,setCode]=useState('');
 
  const [message,setMessage]=useState(''),
     [loading,setLoading]=useState(false),
@@ -79,9 +80,29 @@ function App(){
     try{if(authMode==='register')await api('/auth/register',{method:'POST',body:{email,password,display_name:name}});
     const result=await api('/auth/login',{method:'POST',body:{username:email,password},form:true});
     setToken(result.access_token);
-    setUser(await api('/me'));
+    const me=await api('/me');
+    setUser(me);
+    setPassword('');
+    if(me.is_verified)setAuthOpen(false);
+    else setAuthMode('verify');}
+    catch(e){showError(e);}}
+
+ function openVerify(){setCode('');
+    setAuthMode('verify');
+    setAuthOpen(true);}
+
+ async function submitVerify(e){e.preventDefault();
+    setMessage('');
+    try{setUser(await api('/auth/verify-email',{method:'POST',body:{code}}));
+    setCode('');
     setAuthOpen(false);
-    setPassword('');}
+    setAuthMode('login');
+    setMessage('Email verified. You can now write reviews.');}
+    catch(e){showError(e);}}
+
+ async function resendCode()
+    {try{const result=await api('/auth/resend-verification',{method:'POST'});
+    setMessage(result.detail);}
     catch(e){showError(e);}}
 
  async function submitReview(e){e.preventDefault();
@@ -169,13 +190,20 @@ return <>
             <button className={page==='recommendations'?'active':''} onClick={loadPreferences}>For you <Sparkles size={14}/></button>
         </nav>
         <div className="account">
-            {user?<button className="ghost" onClick={()=>{setToken(null);setUser(null);setRecommendations([]);setPage('discover');}}>
+            {user?<button className="ghost" onClick={()=>{setToken(null);setUser(null);setAuthMode('login');setRecommendations([]);setPage('discover');}}>
                 <LogOut size={16}/> {user.display_name} · Log out
             </button>:
             <button className="primary small" onClick={()=>setAuthOpen(true)}>Log in / Sign up <ArrowRight size={15}/></button>}
         </div>
     </div>
 </header>
+
+{user&&!user.is_verified&&
+<div className="verify-banner">
+    <div className="shell">Check {user.email} for a verification code to start writing reviews.
+        <button className="text-button" onClick={openVerify}>Enter code <ArrowRight size={15}/></button>
+    </div>
+</div>}
 
 {page==='discover'&&<>
 <section className="hero">
@@ -341,6 +369,9 @@ return <>
         {!user?<p>
             <button className="text-button" onClick={()=>setAuthOpen(true)}>Log in</button>
              to share your experience.
+        </p>:!user.is_verified?<p>
+            <button className="text-button" onClick={openVerify}>Verify your email</button>
+             to share your experience.
         </p>:
         <form className="review-form" onSubmit={submitReview}>
             <label>Course code
@@ -479,6 +510,16 @@ return <>
         <div className="logo-mark">
             <UserRound size={23}/>
         </div>
+        {authMode==='verify'&&user?<>
+        <h2>Verify your email</h2>
+        <p>We sent a 6-digit code to {user?.email}. It expires in 15 minutes.</p>
+        <form onSubmit={submitVerify}>
+            <label>Verification code<input required inputMode="numeric" autoComplete="one-time-code" pattern="\d{6}" maxLength={6} value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,''))} placeholder="123456"/></label>
+            <button className="primary wide">Verify email</button>
+        </form>
+        <p className="switch">Didn't get it?
+            <button onClick={resendCode}>Send a new code</button>
+        </p></>:<>
         <h2>{authMode==='login'?'Welcome back':'Join Professor.io'}</h2>
         <p>{authMode==='login'?'Log in to leave reviews and get personalized matches.':'Create an account to find your best-fit professors.'}</p>
         <form onSubmit={submitAuth}>{authMode==='register'&&
@@ -489,7 +530,7 @@ return <>
         </form>
         <p className="switch">{authMode==='login'?"Don't have an account? ":'Already have an account? '}
             <button onClick={()=>setAuthMode(authMode==='login'?'register':'login')}>{authMode==='login'?'Sign up':'Log in'}</button>
-        </p>
+        </p></>}
     </div>
 </div>}
 
