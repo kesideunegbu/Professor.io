@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -13,6 +13,7 @@ from app.schemas import (
 )
 from app.security import get_optional_user
 from app.services.ai import AIService, AIUnavailable, get_ai
+from app.services.limits import client_key
 from app.services.matching import MIN_EVIDENCE, compatibility, user_preferences
 from app.services.professors import (
     cached_ai_call,
@@ -31,6 +32,7 @@ SIMILARITY_MARGIN = 0.1
 
 @router.get("", response_model=ComparisonOut)
 def compare_professors(
+    request: Request,
     a: int = Query(description="First professor id"),
     b: int = Query(description="Second professor id"),
     course: str | None = Query(None, description="Restrict to reviews for this course"),
@@ -100,6 +102,7 @@ def compare_professors(
             produce=lambda: ai.compare(
                 prof_a.full_name, reviews_a, prof_b.full_name, reviews_b, course
             ),
+            usage_key=client_key(request, user) if ai.enabled else None,
         )
     except AIUnavailable as exc:
         out.narrative_note = str(exc)

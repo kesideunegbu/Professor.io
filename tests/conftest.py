@@ -101,3 +101,12 @@ def add_review(client, professor_id, course="CS101", n=0, **overrides) -> dict:
     r = client.post(f"/professors/{professor_id}/reviews", json=body, headers=headers)
     assert r.status_code == 201, r.text
     return r.json()
+
+
+@pytest.fixture(autouse=True)
+def generous_ai_limits():
+    """Fresh, high usage limits per test; tests about limits lower them."""
+    from app.services.limits import ai_limits
+
+    ai_limits.configure(per_user_per_hour=1000, per_minute=1000)
+    yield ai_limits

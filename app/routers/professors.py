@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -17,6 +17,7 @@ from app.schemas import (
 )
 from app.security import get_current_user, get_optional_user
 from app.services.ai import AIService, AIUnavailable, get_ai
+from app.services.limits import AIRateLimited, client_key
 from app.services.matching import compatibility, user_preferences
 from app.services.professors import (
     analyze_review,
@@ -133,11 +134,17 @@ def create_review(
 @router.get("/{professor_id}/summary", response_model=SummaryOut)
 def review_summary(
     professor_id: int,
+    request: Request,
     course: str | None = None,
     db: Session = Depends(get_db),
     ai: AIService = Depends(get_ai),
+    user: User | None = Depends(get_optional_user),
 ):
-    """Gemini summary of the professor's reviews. Cached until the reviews change."""
+    """Gemini summary of the professor's reviews. Cached until the reviews change.
+
+    Generating a new summary counts toward the caller's AI usage limit; viewing a
+    saved one doesn't.
+    """
     professor = get_professor_or_404(db, professor_id)
     course = _course(course)
     reviews = load_reviews(db, professor_id, course)
@@ -158,7 +165,15 @@ def review_summary(
             fp=fingerprint(reviews),
             schema=ReviewSummary,
             produce=lambda: ai.summarize_reviews(professor.full_name, reviews, course),
+            # Without a key nothing is sent to Gemini, so nothing should count.
+            usage_key=client_key(request, user) if ai.enabled else None,
         )
+    except AIRateLimited as exc:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            str(exc),
+            headers={"Retry-After": str(exc.retry_after)},
+        ) from exc
     except AIUnavailable as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
     return out
