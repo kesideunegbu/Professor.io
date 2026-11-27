@@ -1,0 +1,36 @@
+# Run the whole app with one command:
+#   docker compose up --build
+# Then open http://localhost:5173 (website) and http://localhost:8000/docs (API).
+# Load sample data (once):
+#   docker compose exec backend python -m scripts.seed
+
+services:
+  backend:
+    build: .
+    ports:
+      - "8000:8000"
+    # Reads JWT_SECRET, GEMINI_API_KEY, etc. from your .env file if it exists.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Always use the database on the volume below, even if .env sets a local path.
+      DATABASE_URL: sqlite:////app/data/professor_io.db
+    volumes:
+      - backend-data:/app/data
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # The browser calls the API directly, so this is the address on YOUR machine.
+        VITE_API_URL: http://localhost:8000
+    # Port 5173 matches the backend's default CORS_ORIGINS.
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  # Keeps the SQLite database between restarts. `docker compose down -v` deletes it.
+  backend-data:

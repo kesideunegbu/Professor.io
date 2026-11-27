@@ -1,0 +1,44 @@
+# Checks that the Docker setup builds and that the backend container starts.
+name: Docker
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Docker build and smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build images
+        run: docker compose build
+
+      - name: Start containers
+        run: docker compose up -d
+
+      # Wait up to ~60s for the API to answer, then check the website responds too.
+      - name: Smoke test
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/health; then break; fi
+            sleep 2
+          done
+          curl -fsS http://localhost:8000/health
+          curl -fsS http://localhost:5173 | grep -q '<div id="root">'
+          docker compose exec -T backend python -m scripts.seed
+          curl -fsS "http://localhost:8000/professors" | grep -q Alvarez
+
+      - name: Show logs if something failed
+        if: failure()
+        run: docker compose logs
+
+      - name: Stop containers
+        if: always()
+        run: docker compose down -v
